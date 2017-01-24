@@ -1,0 +1,2 @@
+rm "aligner.pyx"
+cp "basic_aligner.py" "aligner.pyx" 
