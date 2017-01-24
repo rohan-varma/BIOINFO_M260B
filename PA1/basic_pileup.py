@@ -34,7 +34,6 @@ def generate_consensus(aligned_fn):
 
 def process_lines(genome_lines):
     """
-
     :param genome_lines: Lines in between dashes from the saved output of the basic_aligner
     :return: snps (the snps from this set of lines)
              output_lines (the lines to print, given this set of lines)
@@ -80,7 +79,7 @@ def consensus(ref, reads):
             # Spaces and dots (representing the distance between paired ends) do not count as DNA bases
         for base in read_bases:
             base_count[base] += 1
-        consensus_base = max(base_count.iterkeys(), key=(lambda key: base_count[key]))
+        consensus_base = max(iter(base_count.keys()), key=(lambda key: base_count[key]))
             # The above line chooses (a) key with maximum value in the read_bases dictionary.
         consensus_string += consensus_base
     return consensus_string
