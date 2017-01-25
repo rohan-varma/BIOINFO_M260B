@@ -6,19 +6,24 @@ import numpy as np
 from os.path import join
 import time
 from BIOINFO_M260B.helpers import read_reads, read_reference, pretty_print_aligned_reads_with_ref
+THRESHOLD = 7 # mismatches threshold
 
-def process_read_pair(front, back, ref):
+def mismatchify_pair(front, back, ref):
     min_mismatches, min_mismatch_location = len(front) + 1, -1
     for i in range(len(ref) - len(front)):
-        n_mismatches = sum([1 if front[j] != ref[i + j] else 0 for j in range(len(front))])
+        # n_mismatches = sum([1 if front[j] != ref[i + j] else 0 for j in range(len(front))])
+        n_mismatches = sum([c1!=c2 for c1, c2 in zip(front, ref[i:i+len(front)])])
         if n_mismatches < min_mismatches:
             min_mismatches, min_mismatch_location = n_mismatches, i
 
+    if min_mismatches >= 10:
+        return min_mismatches, min_mismatch_location, 0, -1 # early termination
     min_tail_mismatches, min_tail_location = len(back) + 1, -1
     for k in range(130,170):
         endpoint = min_mismatch_location + k
         if endpoint + len(back) > len(ref): break # out of bounds
-        n_mismatches = sum([1 if back[j] != ref[endpoint + j] else 0 for j in range(len(back))])
+        # n_mismatches = sum([1 if back[j] != ref[endpoint + j] else 0 for j in range(len(back))])
+        n_mismatches = sum(c1!=c2 for c1, c2 in zip(back, ref[endpoint:endpoint + len(back)]))
         if n_mismatches < min_tail_mismatches:
             min_tail_mismatches, min_tail_location = n_mismatches, endpoint
 
@@ -44,26 +49,29 @@ def align_pairs_to_ref(paired_end_reads, ref):
     all_read_alignment_locations, output_read_pairs = [], []
     count = 0
     start = time.clock()
-    debug = False
     matched = 0
     for read_pair in paired_end_reads:
         count += 1
-        read_alignment_locations, output_read_pairs = [], []
-        found = False
+        #found = False
         if count % 50 == 0: print_info(start, count, paired_end_reads)
         front, reversed_back = read_pair[0], read_pair[1][::-1]
-        min_mismatches, min_mismatch_location, min_tail_mismatches, min_tail_location = process_read_pair(front, reversed_back, ref)
+        min_mismatches, min_mismatch_location, min_tail_mismatches, min_tail_location = mismatchify_pair(front, reversed_back, ref)
 
-        if (min_mismatches + min_tail_mismatches < 10):
+        if (min_mismatches + min_tail_mismatches < THRESHOLD):
             matched += 1
-            read_alignment_locations.append(min_mismatch_location)
-            output_read_pair.append(front)
-            read_alignment_locations.append(min_tail_location)
-            output_read_pair.append(reversed_back)
-            found = True
-        if (found):
+            read_alignment_locations = [min_mismatch_location, min_tail_location]
+            output_read_pair = [front, reversed_back]
+            # read_alignment_locations.append(min_mismatch_location)
+            # output_read_pair.append(front)
+            # read_alignment_locations.append(min_tail_location)
+            # output_read_pair.append(reversed_back)
+            # found = True
             all_read_alignment_locations.append(read_alignment_locations)
             output_read_pairs.append(output_read_pair)
+        # if (found):
+        #     pass
+        #     # all_read_alignment_locations.append(read_alignment_locations)
+        #     # output_read_pairs.append(output_read_pair)
 
     # after main loop
     print('Matched {} reads'.format(matched))

@@ -6,25 +6,45 @@ import numpy as np
 from os.path import join
 import time
 from BIOINFO_M260B.helpers import read_reads, read_reference, pretty_print_aligned_reads_with_ref
-THRESHOLD = 10 # mismatches threshold
-def process_read_pair(front, back, ref):
-    min_mismatches, min_mismatch_location = len(front) + 1, -1
+THRESHOLD = 7 # mismatches threshold
+
+def mismatchify_pair(front, back, ref):
+    """Takes a front/back read and matches it to a location in the genome.
+       This algorithm slides the read through the entire genome, repeatedly saving
+       the index and number of mismatches when it finds a smallest mismatching.
+       Params:
+        front - string, front read
+        back: - string, back read
+        ref: - string, large ref genome
+       return:
+        min_mismatches: min number of forward mismatches
+        min_mismatch_loc: the location where the above was found in ref
+        min_back_mismatches: the min number of backward mismatches
+        min_back_loc: the location where the above was found in ref
+        """
+    min_mismatches, min_mismatch_loc = len(front) + 1, -1
+
     for i in range(len(ref) - len(front)):
         n_mismatches = sum([1 if front[j] != ref[i + j] else 0 for j in range(len(front))])
         if n_mismatches < min_mismatches:
-            min_mismatches, min_mismatch_location = n_mismatches, i
+            min_mismatches, min_mismatch_loc = n_mismatches, i
 
-    min_tail_mismatches, min_tail_location = len(back) + 1, -1
+    if min_mismatches >= 10:
+        return min_mismatches, min_mismatch_loc, 0, -1 # early termination
+
+    min_back_mismatches, min_back_loc = len(back) + 1, -1
+
     for k in range(130,170):
-        endpoint = min_mismatch_location + k
+        endpoint = min_mismatch_loc + k
         if endpoint + len(back) > len(ref): break # out of bounds
         n_mismatches = sum([1 if back[j] != ref[endpoint + j] else 0 for j in range(len(back))])
-        if n_mismatches < min_tail_mismatches:
-            min_tail_mismatches, min_tail_location = n_mismatches, endpoint
+        if n_mismatches < min_back_mismatches:
+            min_back_mismatches, min_back_loc = n_mismatches, endpoint
 
-    return min_mismatches, min_mismatch_location, min_tail_mismatches, min_tail_location
+    return min_mismatches, min_mismatch_loc, min_back_mismatches, min_back_loc
 
 def print_info(start, count, paired_end_reads):
+    """Print details about time and how many reads have been aligned."""
     time_passed = (time.clock()-start)/60
     print('{} reads aligned'.format(count), 'in {:.3} minutes'.format(time_passed))
     remaining_time = time_passed/count*(len(paired_end_reads)-count)
@@ -44,28 +64,23 @@ def align_pairs_to_ref(paired_end_reads, ref):
     all_read_alignment_locations, output_read_pairs = [], []
     count = 0
     start = time.clock()
-    debug = False
     matched = 0
+    # go through all reads
     for read_pair in paired_end_reads:
         count += 1
-        read_alignment_locations, output_read_pair = [], []
-        found = False
         if count % 50 == 0: print_info(start, count, paired_end_reads)
         front, reversed_back = read_pair[0], read_pair[1][::-1]
-        min_mismatches, min_mismatch_location, min_tail_mismatches, min_tail_location = process_read_pair(front, reversed_back, ref)
-
-        if (min_mismatches + min_tail_mismatches < THRESHOLD):
+        # get mismatches
+        min_mismatches, min_mismatch_loc, min_back_mismatches, min_back_loc = mismatchify_pair(front, reversed_back, ref)
+        # check threshold. If met, add to list
+        if (min_mismatches + min_back_mismatches < THRESHOLD):
             matched += 1
-            read_alignment_locations.append(min_mismatch_location)
-            output_read_pair.append(front)
-            read_alignment_locations.append(min_tail_location)
-            output_read_pair.append(reversed_back)
-            found = True
-        if (found):
+            read_alignment_locations = [min_mismatch_loc, min_back_loc]
+            output_read_pair = [front, reversed_back]
             all_read_alignment_locations.append(read_alignment_locations)
             output_read_pairs.append(output_read_pair)
 
-    # after main loop
+    # finish
     print('Matched {} reads'.format(matched))
     return all_read_alignment_locations, output_read_pairs
 
