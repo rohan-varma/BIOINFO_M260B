@@ -29,7 +29,7 @@ def mismatchify_pair(front, back, ref):
         if n_mismatches < min_mismatches:
             min_mismatches, min_mismatch_loc = n_mismatches, i
 
-    if min_mismatches >= 10:
+    if min_mismatches >= THRESHOLD:
         return min_mismatches, min_mismatch_loc, 0, -1 # early termination
 
     min_back_mismatches, min_back_loc = len(back) + 1, -1
@@ -40,6 +40,8 @@ def mismatchify_pair(front, back, ref):
         n_mismatches = sum([1 if back[j] != ref[endpoint + j] else 0 for j in range(len(back))])
         if n_mismatches < min_back_mismatches:
             min_back_mismatches, min_back_loc = n_mismatches, endpoint
+        if min_back_mismatches + min_mismatches < THRESHOLD:
+            return min_mismatches, min_mismatch_loc, min_back_mismatches, min_back_loc # early termination
 
     return min_mismatches, min_mismatch_loc, min_back_mismatches, min_back_loc
 
