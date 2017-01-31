@@ -124,7 +124,7 @@ def hashing_algorithm(paired_end_reads, genome_ht):
     return alignments, genome_aligned_reads
 
 if __name__ == "__main__":
-    genome_name = 'practice_W_1'
+    genome_name = 'hw2undergrad_E_2'
     input_folder = './{}'.format(genome_name)
     chr_name = '{}_chr_1'.format(genome_name)
     reads_fn_end = 'reads_{}.txt'.format(chr_name)
